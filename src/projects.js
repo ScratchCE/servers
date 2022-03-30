@@ -81,6 +81,27 @@ app.get(/^\/projects\/[0-9]+$/, (req, res) => {
 	res.status(200).json(project);
 });
 
+app.get(/^\/projects\/[0-9]+\/exists$/, (req, res) => {	
+
+	const id = req.path.split("/")[2] - 1;
+	if (isNaN(id)) {
+		console.log("Invalid project existence request")
+		res.status(404).send("<> Not found lol");
+		return;
+	}
+	
+	const project = data.projects[id];
+	if (!project) {
+		console.log("Nonexistent project existence request")
+		res.status(404).send("<> Not found lol");
+		return;
+	}
+	
+	console.log("Project existence request")
+	res.status(204).send("");
+});
+
+
 app.put(/^\/projects\/[0-9]+$/, (req, res) => {	
 	
 	const id = req.path.split("/")[2] - 1;
