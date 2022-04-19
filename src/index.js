@@ -1,6 +1,6 @@
 // The main file.
 
-const app = require("./app.js");
+const {app} = require("./app.js");
 const {data, commitToDb} = require("./db.js");
 const fs = require("fs");
 

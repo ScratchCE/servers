@@ -12,14 +12,16 @@ try {
 	throw err;
 }
 
-if (!data.projects) {
-	data.projects = [];
+if (!data.projCount) {
+	data.projCount = 0;
 	commitToDb();
 }
 
 function commitToDb() {
 	console.log("Database commit")
 	let dataString = JSON.stringify(data);
+	
+	// I dunno if this causes any data corruption when rapidly doing 2 commits
 	fs.writeFile("db/database.json", dataString, ()=>{});
 	fs.writeFile("db/database-backup.json", dataString, ()=>{});
 }
