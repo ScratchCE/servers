@@ -1,8 +1,5 @@
 # Stuff specific to Scratch CE servers
-db/database
-db/database-backup
-db/assets/*
-db/projects/*
+db/*
 
 # ---
 
