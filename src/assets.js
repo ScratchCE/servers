@@ -7,8 +7,8 @@
 	The asset host has all the other files, such as bitmap and vector costumes and sounds. GET /internalapi/asset/[md5].[file_type]/get/ gets the asset, and POST /[md5].[file_type] with the request body containing the asset file uploads it. Assets are given an ID based on the md5 hash of the file so that the same asset is stored in the same place on the servers.
 	
 	Example URL: https://assets.scratch.mit.edu/internalapi/asset/4d4e2400c5989a5ebeccc918aa0ec2f8.svg/get/ and https://assets.scratch.mit.edu/e37d49c1e6fdf02edd09385e0471f6d0.svg Making a GET request to the latter URL works, but I don't think the Scratch editor uses that.
-	
 */
+
 const {app, express} = require("./app.js");
 const fetch = require("node-fetch");
 const fs = require("fs/promises");

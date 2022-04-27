@@ -7,24 +7,17 @@ const fs = require("fs");
 // Clear screen, thanks stackoverflow
 process.stdout.write('\033c');
 
-console.log("====== Servers ======");
-console.log("        (WIP)        \n");
+console.log("====== SCE Servers ======");
+console.log("          (WIP)          \n");
 
 app.get("/", (req, res) => {
-	console.log("Request to homepage")
-	res.send("E");
+	res.send("Pong");
 });
 
 require("./projects.js");
 require("./assets.js");
 
-app.use(function (req, res) {
-	console.log("Nonexistent path request")
-	res.status(404).send("Not found lol");
-});
-
-app.listen(8080, () => {
+app.listen(8079, () => {
 	console.log("Server up!");
-	console.log("Current database:\n", data, "\n\n");
-	console.log("==========LOGS==========");
+	console.log("Current database:\n", data);
 });
