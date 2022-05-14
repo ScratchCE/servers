@@ -1,5 +1,7 @@
 # Stuff specific to Scratch CE servers
 db/
+keys/
+launch.bat
 
 # ---
 

@@ -48,8 +48,6 @@ try {
 	throw err;
 }
 
-commitToDb();
-
 function commitToDb() {
 	console.log("Database commit")
 	let dataString = JSON.stringify(data);

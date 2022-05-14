@@ -19,10 +19,10 @@ const fs = require("fs/promises");
 const assetSizeLimit = 10 * 1000 * 1000;
 
 const assetTypes = {
-	"png": "image/png",
-	"svg": "image/svg+xml",
-	"wav": "audio/x-wav",
-	"mp3": "audio/mpeg",
+	png: "image/png",
+	svg: "image/svg+xml",
+	wav: "audio/x-wav",
+	mp3: "audio/mpeg",
 }
 
 // Support both the /internalapi/asset/md5/get/ longhand that Scratch uses
@@ -39,6 +39,7 @@ async function getAsset(req, res, levels) {
 	
 	try {
 		const file = await fs.readFile(`db/assets/${asset}`, {encoding: null});
+		res.set("Content-Type", assetTypes[asset.split(".")[1]] || "application/octet-stream");
 		res.status(200).send(file);
 	} catch (e) {
 		console.error(e);
@@ -48,6 +49,8 @@ async function getAsset(req, res, levels) {
 		// to minimize space usage)
 		const resp = await fetch(`https://assets.scratch.mit.edu/${asset}`);
 		const data = await resp.arrayBuffer();
+		
+		res.set("Content-Type", resp.headers.get("Content-Type"));
 		
 		res.status(resp.status).send(Buffer.from(data));
 	}
