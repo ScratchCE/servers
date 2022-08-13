@@ -9,9 +9,9 @@
 	Example URL: https://assets.scratch.mit.edu/internalapi/asset/4d4e2400c5989a5ebeccc918aa0ec2f8.svg/get/ and https://assets.scratch.mit.edu/e37d49c1e6fdf02edd09385e0471f6d0.svg Making a GET request to the latter URL works, but I don't think the Scratch editor uses that.
 */
 
-const {app, express} = require("./app.js");
-const fetch = require("node-fetch");
-const fs = require("fs/promises");
+import {app} from "./app.js";
+import fetch from "node-fetch";
+import db from "./db.js";
 
 // NOTE: If you're modifying this, app.js also has a max buffer size of 1000MB.
 // Make sure to set that too to something higher than your asset size limit
@@ -27,23 +27,24 @@ const assetTypes = {
 
 // Support both the /internalapi/asset/md5/get/ longhand that Scratch uses
 // and the /md5 shorthand that is usually used by unofficial stuff
-app.get(/\/assets\/internalapi\/asset\/[a-zA-Z0-9]+\.[a-zA-Z0-9]+\/get/, (req, res) => {
-	getAsset(req, res, 4);
+app.get("/assets/internalapi/asset/:asset/get", (req, res) => {
+	getAsset(req, res);
 });
-app.get(/\/assets\/[a-zA-Z0-9]+\.[a-zA-Z0-9]+/, (req, res) => {
-	getAsset(req, res, 2);
+app.get("/assets/internalapi/asset/:asset/get", (req, res) => {
+	getAsset(req, res);
 });
 
-async function getAsset(req, res, levels) {
-	const asset = req.path.split("/")[levels];
+async function getAsset(req, res) {
+	const asset = req.params.asset;
+
+	const returnVal = await db.get(`
+		SELECT data FROM assets WHERE hash == ? AND ext == ?
+	`, asset.split(".")[0], asset.split(".")[1]);
 	
-	try {
-		const file = await fs.readFile(`db/assets/${asset}`, {encoding: null});
+	if (returnVal !== undefined) {
 		res.set("Content-Type", assetTypes[asset.split(".")[1]] || "application/octet-stream");
-		res.status(200).send(file);
-	} catch (e) {
-		console.error(e);
-		
+		res.status(200).send(returnVal.data);
+	} else {
 		// Fetch from the Scratch servers too
 		// (assets that already exist on assets.scratch are not stored
 		// to minimize space usage)
@@ -56,18 +57,21 @@ async function getAsset(req, res, levels) {
 	}
 }
 
-app.post(/\/assets\/[a-zA-Z0-9]+\.[a-zA-Z0-9]/, async (req, res) => {
-	const asset = req.path.split("/")[2];
+app.post("/assets/:asset", async (req, res) => {
+	const asset = req.params.asset;
 	
-	try {
-		// First attempt to fetch the local file...
-		await fs.access(`db/assets/${asset}`);
+	// First, attempt to get the asset locally...
+	const returnVal = await db.get(`
+		SELECT data FROM assets WHERE hash == ? AND ext == ?
+	`, asset.split(".")[0], asset.split(".")[1]);
+
+	if (returnVal !== undefined) {
 		// If it exists, then it is uploaded!
 		res.status(200).json({
 			status: "ok",
 			"content-name": asset
 		});
-	} catch (e) {
+	} else {
 		// Otherwise...
 		
 		// Fetch from the Scratch servers too
@@ -85,9 +89,15 @@ app.post(/\/assets\/[a-zA-Z0-9]+\.[a-zA-Z0-9]/, async (req, res) => {
 			// Upload it!
 			try {
 				const data = req.body;
-				const ext = asset.split(".")[1];
+				const ext =  asset.split(".")[1];
 				if (data.length <= assetSizeLimit) {
-					await fs.writeFile(`db/assets/${asset}`, data);
+					await db.run(`
+						INSERT INTO assets (
+							hash, ext, data
+						) VALUES (
+							?, ?, ?
+						)
+					`, asset.split(".")[0], ext, data);
 					res.status(200).json({
 						status: "ok",
 						"content-name": asset

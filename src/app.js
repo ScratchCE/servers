@@ -3,18 +3,21 @@
 
 console.log("app.js required");
 
-const express = require("express");
-const cors = require('cors');
+import express from "express";
+import cors from "cors";
 
 const app = express();
 
-app.use(cors({
+const corsOptions = {
 	origin: true,
-	credentials: true
-}));
+	credentials: true,
+};
+
+app.options("*", cors(corsOptions));
+app.use(cors(corsOptions));
 app.use(express.urlencoded({extended: true, limit: "1000mb"}));
 app.use(express.text({limit: "1000mb"}));
 app.use(express.json({limit: "1000mb"}));
 app.use(express.raw({type: () => true, limit: "1000mb"}));
 
-module.exports = {app, express};
+export {app, express};

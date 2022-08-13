@@ -21,21 +21,22 @@
 			- projects.scratch gzips the request, but I think we could afford making it uncompressed for simplicity
 */
 
-const {app, express} = require("./app.js");
-const fs = require("fs/promises");
-const {data, commitToDb} = require("./db.js");
+import {app} from "./app.js";
+import {getSession} from "./auth.js";
+import db from "./db.js";
 
 // I know Scratch's project.json limit is slightly bigger but...
 const projectSizeLimit = 5 * 1000 * 1000;
 
+const sizeLimitMb = projectSizeLimit / 1000 / 1000;
+
 function sizeLimitMsg(res) {
-	res.status(413).send(`Exceeded project.json size limit - maximum is ${projectSizeLimit} bytes (${projectSizeLimit/1000/1000} megabytes). Try clearing large lists or using more efficient code in the project.`);
+	res.status(413).send(`Exceeded project.json size limit - maximum is ${projectSizeLimit} bytes (${sizeLimitMb} megabytes). Try clearing large lists or using more efficient code in the project.`);
 }
 
-app.post("/projects", async (req, res) => {	
-
+app.post("/projects", async (req, res) => {
 	const project = req.body;
-			
+	
 	if (Object.keys(project).length < 1) {
 		res.status(400).send("Invalid project data. Make sure to send Content-Type: application/json as a header because that's required for some reason");
 		return;
@@ -49,13 +50,24 @@ app.post("/projects", async (req, res) => {
 	}
 	
 	try {
-		await fs.writeFile(`db/projects/${data.projCount + 1}.json`, stringified);
-		data.projCount++;
-		commitToDb();
+		const title = "Untitled";
+		let creator = 0;
+		try {
+			const session = await getSession(req.get("X-Token"));
+			creator = session.userId || 0;
+		} catch(e) {}
+		const result = await db.run(`
+			INSERT INTO projects (
+				title, data, dateCreated, dateModified, creator, owner
+			) VALUES (
+				?, ?, ?, ?, ?, ?
+			);
+		`, title, stringified, Date.now(), Date.now(), creator, creator);
+
 		res.status(201).json({
 			status: "ok",
-			"content-name": data.projCount.toString(),
-			"content-title": toBase64("Untitled"),
+			"content-name": result.lastID.toString(),
+			"content-title": toBase64(title),
 			"autosave-interval": "120"
 		});
 	} catch(e) {
@@ -65,51 +77,58 @@ app.post("/projects", async (req, res) => {
 	}
 });
 
-app.get(/^\/projects\/[0-9]+$/, async (req, res) => {	
-
-	const id = req.path.split("/")[2];
+app.get("/projects/:id", async (req, res) => {	
+	if (req.params.id === "count") {
+		res.status(200).send(
+			(await db.all(`SELECT id FROM projects`)).length.toString()
+		);
+		return;
+	}
+	
+	const id = req.params.id;
 	if (isNaN(id)) {
 		// TurboWarp detects a < at the start to see if
 		// the project is existent (to bring up the not found project)
 		res.status(404).send("<> Not found lol");
 		return;
 	}
-	
-	try {
-		const project = await fs.readFile(`db/projects/${id}.json`);
-		res.status(200).json(JSON.parse(project.toString()));
-	} catch(e) {
-		// See above
+
+	const returnVal = await db.get(`
+		SELECT data FROM projects WHERE id == ?
+	`, id);
+
+	if (returnVal !== undefined) {
+		res.status(200).json(JSON.parse(returnVal.data.toString()));
+	} else {
 		res.status(404).send("<> Not found lol");
-		return;
 	}
 });
 
 // Quick (unofficial) way to get if a project exists -
 // not actually used by GUI but for external sites
-app.get(/^\/projects\/[0-9]+\/exists$/, async (req, res) => {	
-
-	const id = req.path.split("/")[2];
+app.get("/projects/:id/exists", async (req, res) => {
+	const id = req.params.id;
 	if (isNaN(id)) {
 		// See project GET function
 		res.status(404).send("<> Not found lol");
 		return;
 	}
-	
-	try {
-		await fs.access(`db/projects/${id}.json`);
+
+	const exists = await db.get(`
+		SELECT id FROM projects WHERE id == ?
+	`, id);
+
+	if (exists !== undefined) {
 		res.status(204).end();
-	} catch(e) {
+	} else {
 		// See project GET function
 		res.status(404).send("<> Not found lol");
-		return;
 	}
 });
 
 
-app.put(/^\/projects\/[0-9]+$/, async (req, res) => {	
-	
-	const id = req.path.split("/")[2];
+app.put("/projects/:id", async (req, res) => {
+	const id = req.params.id;
 	if (isNaN(id)) {
 		res.status(404).send("Not found lol");
 		return;
@@ -131,37 +150,21 @@ app.put(/^\/projects\/[0-9]+$/, async (req, res) => {
 		sizeLimitMsg(res);
 		return;
 	}
-	
-	try {
-		await fs.writeFile(`db/projects/${id}.json`, stringified);
+
+	const exists = await db.get(`
+		SELECT id FROM projects WHERE id == ?
+	`, id);
+
+	if (exists !== undefined) {
+		await db.run(`
+			UPDATE projects SET data = ?, dateModified = ? WHERE id == ?
+		`, stringified, Date.now(), id);
 		res.status(200).json(project);
-	} catch(e) {
-		// Oops
+	} else {
 		console.log("Error uploading project:", e);
 		res.status(500).send(e);
 	}
 });
-
-// I don't know if the Scratch servers actually parse OPTIONS requests,
-// but just to be sure
-app.options(/^\/projects\/[0-9]+$/, async (req, res) => {		
-	const id = req.path.split("/")[2];
-	if (isNaN(id)) {
-		// See project GET function
-		res.status(404).send("<> Not found lol");
-		return;
-	}
-	
-	try {
-		await fs.access(`db/projects/${id}.json`);
-		res.status(204).end();
-	} catch(e) {
-		// See project GET function
-		res.status(404).send("<> Not found lol");
-		return;
-	}
-});
-
 
 function toBase64(string) {
 	const bfr = Buffer.from(string);

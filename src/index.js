@@ -1,13 +1,15 @@
 // The main file.
 
-const {app} = require("./app.js");
-const {data, commitToDb} = require("./db.js");
-const fs = require("fs");
-const http = require("http");
-const https = require("https");
+import {app} from "./app.js";
+
+import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
+
+import "dotenv/config";
 
 // Clear screen, thanks stackoverflow
-process.stdout.write('\033c');
+process.stdout.write("\u001bc");
 
 console.log("====== SCE Servers ======");
 console.log("          (WIP)          \n");
@@ -20,8 +22,16 @@ app.get("/", (req, res) => {
 </body>`);
 });
 
-require("./projects.js");
-require("./assets.js");
+console.log("Loading module: auth")
+await import("./auth.js");
+console.log("Loading module: projects")
+await import("./projects.js");
+console.log("Loading module: assets")
+await import("./assets.js");
+console.log("Loading module: api/projects")
+await import("./api/projects.js");
+console.log("Loading module: api/proxy")
+await import("./api/proxy.js");
 
 const httpServer = http.createServer(app);
 httpServer.listen(80);
