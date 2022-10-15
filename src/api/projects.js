@@ -39,35 +39,17 @@ app.put("/api/projects/:id", async (req, res) => {
 		return;
 	}
 
-	const id = req.params.id;
-	if (isNaN(id)) {
-		res.status(404).send("Not found lol");
-		return;
-	}
-
-	const projInfo = await db.get(`
-		SELECT * FROM projects WHERE id == ?
-	`, id);
-
-	const session = await getSession(req.get("X-Token"));
-	if (!session) {
-		res.status(403).send("You need to be logged in as the project's creator or be an admin to edit projects!");
-		return;
-	}
-
-	const account = await getAccount(session.userId);
-
-	if (session.userId !== projInfo.owner && !(account.rank > 0)) {
-		res.status(403).send("You need to be logged in as the project's creator or be an admin to edit projects!");
-		return;
-	}
+	const projInfo = await authProject(req, res);
+	if (!projInfo) return;
 
 	const allowedKeys = [
 		"title", "description", "instructions",
 	];
 	for (const key in req.body) {
 		if (!allowedKeys.includes(key)) {
-			res.status(400).send("Invalid key found, possible keys are " + allowedKeys.join(", "));
+			res.status(403).json(
+				{error: "Invalid key found, possible keys are " + allowedKeys.join(", ")}
+			);
 			return;
 		}
 	}
@@ -84,22 +66,49 @@ app.put("/api/projects/:id", async (req, res) => {
 		fb(req.body.title, projInfo.title),
 		fb(req.body.description, projInfo.description),
 		fb(req.body.instructions, projInfo.instructions),
-		IDBCursor
+		id
 	);
+
+	if (
+		(req.body.isShared || req.body.is_shared) &&
+		!projInfo.shared
+	) {
+		shareProject(id);
+	}
+	if (
+		(req.body.isShared === false || req.body.is_shared === false) &&
+		projInfo.shared
+	) {
+		unshareProject(id);
+	}
+	if (
+		(req.body.isPublished || req.body.is_published) &&
+		!projInfo.published
+	) {
+		publishProject(id);
+	}
+	if (
+		(req.body.isPublished === false || req.body.is_published === false) &&
+		projInfo.published
+	) {
+		unpublishProject(id);
+	}
+
 	const newProjInfo = await db.get(`
 		SELECT * FROM projects WHERE id == ?
 	`, id);
 	res.status(200).json(await createProjInfo(newProjInfo));
 });
 
-async function createProjInfo(projInfo) {
+export async function createProjInfo(projInfo) {
 	const data = {
 		id: projInfo.id,
 		title: projInfo.title,
 		description: projInfo.description,
 		instructions: projInfo.instructions,
 		visibility: "visible",
-		public: !!projInfo.shared,
+		public: !!projInfo.published,
+		is_shared: !!projInfo.shared,
 		is_published: !!projInfo.published,
 		author: {
 			id: projInfo.owner,
@@ -147,4 +156,83 @@ async function createProjInfo(projInfo) {
 		};
 	}
 	return data;
+}
+
+export async function shareProject(id) {
+	await db.run(`
+		UPDATE projects
+			SET shared = 1, dateShared = ?
+			WHERE id == ?
+	`,
+		Date.now(),
+		id
+	);
+}
+export async function unshareProject(id) {
+	await db.run(`
+		UPDATE projects
+			SET shared = 0, published = 0,
+			dateShared = 0, datePublished = 0
+			WHERE id == ?
+	`,
+		id
+	);
+}
+export async function publishProject(id) {
+	const projInfo = await db.get(`
+		SELECT shared FROM projects WHERE id == ?
+	`, id);
+	if (!projInfo.shared) {
+		shareProject(id);
+	}
+
+	await db.run(`
+		UPDATE projects
+			SET published = 1, datePublished = ?
+			WHERE id == ?
+	`,
+		Date.now(),
+		id
+	);
+}
+export async function unpublishProject(id) {
+	await db.run(`
+		UPDATE projects
+			SET published = 0, datePublished = 0
+			WHERE id == ?
+	`,
+		id
+	);
+}
+export async function authProject(req, res) {
+	const id = req.params.id;
+	if (isNaN(id)) {
+		res.status(403).json(
+			{error: "Not found"}
+		);
+		return null;
+	}
+
+	const projInfo = await db.get(`
+		SELECT * FROM projects WHERE id == ?
+	`, id);
+
+	const session = await getSession(req.get("X-Token"));
+	if (!session) {
+		res.status(403).json(
+			{error: "You need to be logged in as the project's creator or be an admin to edit projects!"}
+		);
+		return null;
+	}
+
+	const account = await getAccount(session.userId);
+
+	if (session.userId !== projInfo.owner && !(account.rank > 0)) {
+		res.status(403).json(
+			{error: "You need to be logged in as the project's creator or be an admin to edit projects!"}
+		);
+		return null;
+	}
+
+	return projInfo;
 }

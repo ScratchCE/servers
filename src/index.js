@@ -14,7 +14,7 @@ process.stdout.write("\u001bc");
 console.log("====== SCE Servers ======");
 console.log("          (WIP)          \n");
 
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
 	res.send(`
 <body style="font-family: sans-serif;">
 	<h1>Connection successful!</h1>
@@ -36,19 +36,21 @@ await import("./api/proxy.js");
 const httpServer = http.createServer(app);
 httpServer.listen(80);
 
+const keyPath = process.env.SCE_HTTPSKEYPATH || "keys/server.key";
+const crtPath = process.env.SCE_HTTPSCRTPATH || "keys/server.crt";
 
 let useHTTPS = false;
 try {
-	fs.accessSync(`keys/server.crt`);
+	fs.accessSync(crtPath);
 	useHTTPS = true;
 } catch (e) {}
 
 let privateKey, certificate;
 if (useHTTPS) {
-	privateKey = fs.readFileSync("keys/server.key", "utf8");
-	certificate = fs.readFileSync("keys/server.crt", "utf8");
+	privateKey = fs.readFileSync(keyPath, "utf8");
+	certificate = fs.readFileSync(crtPath, "utf8");
 	
-	if (!process.env.SCE_HTTPSPASSPHRASE) {
+	if (process.env.SCE_HTTPSPASSPHRASE === undefined) {
 		console.error("Passphrase missing. Set it in the SCE_HTTPSPASSPHRASE environment variable. The HTTPS server might break.");
 	}
 	

@@ -155,8 +155,8 @@ console.log("Database loaded")
 
 export async function columnExists(table, col) {
 	const filterRegex = /[^a-zA-Z0-9_-]/g;
-	const newTable = table.replaceAll(filterRegex, "");
-	const newCol = col.replaceAll(filterRegex, "");
+	const newTable = table.replace(filterRegex, "");
+	const newCol = col.replace(filterRegex, "");
 	try {
 		await db.get(`SELECT ${newCol} FROM ${newTable}`);
 		return true;

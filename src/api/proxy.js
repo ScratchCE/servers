@@ -3,7 +3,13 @@
 import {app} from "../app.js";
 import db from "../db.js";
 
-app.get("/api/proxy/featured", async (req, res) => {
+import {
+	createProjInfo, authProject,
+	shareProject, unshareProject,
+	publishProject, unpublishProject,
+} from "./projects.js";
+
+app.get("/api/proxy/featured", async (_req, res) => {
 	const recentlyPublished = await db.all(`
 		SELECT * FROM projects
 			WHERE published == 1
@@ -39,4 +45,41 @@ app.get("/api/proxy/featured", async (req, res) => {
 		community_most_loved_projects: [],
 		community_featured_projects: []
 	});
-})
+});
+
+app.put("/proxy/projects/:id/share", async (req, res) => {
+	const projInfo = await authProject(req, res);
+	if (!projInfo) return;
+
+	if (!projInfo.shared) {
+		shareProject(projInfo.id);
+	}
+	res.status(200).json(await createProjInfo(projInfo));
+});
+app.put("/proxy/projects/:id/unshare", async (req, res) => {
+	const projInfo = await authProject(req, res);
+	if (!projInfo) return;
+	
+	if (projInfo.shared) {
+		unshareProject(projInfo.id);
+	}
+	res.status(200).json(await createProjInfo(projInfo));
+});
+app.put("/proxy/projects/:id/publish", async (req, res) => {
+	const projInfo = await authProject(req, res);
+	if (!projInfo) return;
+	
+	if (!projInfo.published) {
+		publishProject(projInfo.id);
+	}
+	res.status(200).json(await createProjInfo(projInfo));
+});
+app.put("/proxy/projects/:id/unpublish", async (req, res) => {
+	const projInfo = await authProject(req, res);
+	if (!projInfo) return;
+
+	if (projInfo.published) {
+		unpublishProject(projInfo.id);
+	}
+	res.status(200).json(await createProjInfo(projInfo));
+});
