@@ -134,9 +134,10 @@ async function createAccount(username) {
 	// (SDB because I don't really want to stress api.scratch)
 	let apiRequest, apiJson;
 	try {
-		apiRequest = await fetch("https://scratchdb.lefty.one/v3/user/info/" + username);
+		apiRequest = await fetch("https://api.scratch.mit.edu/users/" + username);
 		apiJson = await apiRequest.json();
 	} catch (e) {
+		console.log(e);
 		return null;
 	}
 	if (!apiRequest.ok) return null;

@@ -34,7 +34,7 @@ console.log("Loading module: api/proxy")
 await import("./api/proxy.js");
 
 const httpServer = http.createServer(app);
-httpServer.listen(80);
+httpServer.listen(3001);
 
 const keyPath = process.env.SCE_HTTPSKEYPATH || "keys/server.key";
 const crtPath = process.env.SCE_HTTPSCRTPATH || "keys/server.crt";
@@ -61,7 +61,7 @@ if (useHTTPS) {
 	};
 	
 	const httpsServer = https.createServer(credentials, app);
-	httpsServer.listen(443);
+	httpsServer.listen(3002);
 	
 	console.log("HTTPS server up")
 }
